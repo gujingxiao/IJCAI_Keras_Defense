@@ -1,8 +1,10 @@
 import os
 import cv2
+import time
 import numpy as np
 import argparse
 import pandas as pd
+import tensorflow as tf
 from keras.models import Model
 from keras.layers import Input, Dense
 from keras.applications.mobilenet import MobileNet
@@ -89,15 +91,14 @@ def main():
 
     save_image_list = []
     save_label_list = []
+
     # Build Model
     input_image = Input(shape=(train_size, train_size, 3))
-
     base_model = create_model(model_type, input_image)
     predict = Dense(number_of_classes, activation='softmax')(base_model.output)
     model = Model(inputs=input_image, outputs=predict)
     print('Finetune from a IJCAI pretrained model: ', model_dir)
     model.load_weights(model_dir + "_single.h5")
-
 
     # Untartget Attack
     val_list = pd.read_csv(os.path.join(input_dir, val_dir))
@@ -118,38 +119,36 @@ def main():
             image = image / 255.0
             image = np.expand_dims(image, axis=0)
             gt_class = gt_label[index]
+
             initial_preds = model.predict(image)
             initial_class = np.argmax(initial_preds)
-
             x_adv = image
             # Added noise
-            x_noise = np.zeros_like(image)
             # One hot encode the initial class
+
             target = K.one_hot(initial_class, args.number_of_classes)
             # Set variables
             epsilon = np.random.randint(3, 100) / 10000.0
             iters = np.random.randint(2, 7)
-
+            start_time = time.time()
+            # Get the loss and gradient of the loss wrt the inputs
+            loss = K.categorical_crossentropy(target, model.output)
+            grads = K.gradients(loss, model.input)
+            # Get the sign of the gradient
+            delta = K.sign(grads[0])
             for i in range(iters):
-                # Get the loss and gradient of the loss wrt the inputs
-                loss = K.categorical_crossentropy(target, model.output)
-                grads = K.gradients(loss, model.input)
-
-                # Get the sign of the gradient
-                delta = K.sign(grads[0])
-                x_noise = x_noise + delta
-
                 # Perturb the image
                 x_adv = x_adv + epsilon * delta
 
-                # Get the new image and predictions
-                x_adv = sess.run(x_adv, feed_dict={model.input: image})
+            # Get the new image and predictions
+            x_adv = sess.run(x_adv, feed_dict={model.input: image})
 
             preds = model.predict(x_adv)
             predict_class = np.argmax(preds)
             perturbation = compute_perturbation(image[0], x_adv[0])
-            print("Count: {}, Index: {}, GT: {}, Ori_Preds: {}, Adv_Preds: {}, Ori_Score: {},  Adv_Score: {}, Perturbation: {}, Adv_iters: {}, Epsilon: {}".format(
-                count, index, gt_class, initial_class, predict_class, round(initial_preds[0][initial_class], 5), round(preds[0][initial_class], 5), round(perturbation, 5), iters, epsilon))
+            end_time = time.time()
+            print("Count: {}, Time: {}, Index: {}, GT: {}, Ori_Preds: {}, Adv_Preds: {}, Ori_Score: {},  Adv_Score: {}, Perturbation: {}, Adv_iters: {}, Epsilon: {}".format(
+                count, end_time - start_time, index, gt_class, initial_class, predict_class, round(initial_preds[0][initial_class], 5), round(preds[0][initial_class], 5), round(perturbation, 5), iters, epsilon))
 
             if gt_class != predict_class:
                 save_image_list.append(os.path.join(save_dir.replace("../", ""), model_type + '_' + image_dir[index].split('/')[-1]))
@@ -163,10 +162,10 @@ def main():
 
                 print("Done process {} images.".format(gen_num))
                 return
-            # cv2.imshow("ori_image", image[0])
-            # cv2.imshow("x_adv", x_adv[0])
-            # cv2.imshow("dif", (x_adv[0] - image[0]) * 255.0)
-            # cv2.waitKey(30)
+        # cv2.imshow("ori_image", image[0])
+        # cv2.imshow("x_adv", x_adv[0])
+        # cv2.imshow("dif", (x_adv[0] - image[0]) * 255.0)
+        # cv2.waitKey(30)
 
 
 if __name__ == "__main__":
@@ -186,6 +185,7 @@ if __name__ == "__main__":
     argparser.add_argument("--number_of_classes", default=110, type=int)
 
     main()
+
 
 
 
