@@ -127,7 +127,7 @@ def main():
             # One hot encode the initial class
             target = K.one_hot(initial_class, args.number_of_classes)
             # Set variables
-            epsilon = np.random.randint(5, 100) / 10000.0
+            epsilon = np.random.randint(3, 100) / 10000.0
             iters = np.random.randint(2, 7)
 
             for i in range(iters):
@@ -152,10 +152,15 @@ def main():
                 count, index, gt_class, initial_class, predict_class, round(initial_preds[0][initial_class], 5), round(preds[0][initial_class], 5), round(perturbation, 5), iters, epsilon))
 
             if gt_class != predict_class:
-                save_image_list.append(image_dir[index])
+                save_image_list.append(os.path.join(save_dir.replace("../", ""), model_type + '_' + image_dir[index].split('/')[-1]))
                 save_label_list.append(gt_class)
-                cv2.imwrite(os.path.join(save_dir, image_dir[index].split('/')[-1]), x_adv[0] * 255.0)
+                cv2.imwrite(os.path.join(save_dir, model_type + '_' + image_dir[index].split('/')[-1]), x_adv[0] * 255.0)
             if len(save_image_list) >= gen_num:
+                adv_data = {'image_dir': np.array(save_image_list),
+                             'label': np.array(save_label_list)}
+                adv_csv = pd.DataFrame(adv_data)
+                adv_csv.to_csv(os.path.join(save_dir, model_type + "_adv_train.csv"), header=True, index=False)
+
                 print("Done process {} images.".format(gen_num))
                 return
             # cv2.imshow("ori_image", image[0])
@@ -176,7 +181,7 @@ if __name__ == "__main__":
     # train_size是实际训练使用的尺寸，会自动缩放
     argparser.add_argument("--train_size", default=299, type=int)
     # Adv generator number
-    argparser.add_argument("--gen_num", default=100, type=int)
+    argparser.add_argument("--gen_num", default=10, type=int)
     # 共有110类
     argparser.add_argument("--number_of_classes", default=110, type=int)
 
