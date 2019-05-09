@@ -173,15 +173,15 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     # 所有的相对路径建议不要修改，按照名称创建即可
     argparser.add_argument("--input_dir", default="../data/")
-    argparser.add_argument("--save_dir", default="../data_adv/")
+    argparser.add_argument("--save_dir", default="../data_adv/") # 请使用相对路径
     argparser.add_argument("--val_list", default="IJCAI_2019_AAAC_train.csv")
 
     argparser.add_argument("--model_type", default="xception")
     argparser.add_argument("--model_dir", default="./models/ijcai_xception")
     # train_size是实际训练使用的尺寸，会自动缩放
     argparser.add_argument("--train_size", default=299, type=int)
-    # Adv generator number
-    argparser.add_argument("--gen_num", default=10, type=int)
+    # 生成对抗样本的数量
+    argparser.add_argument("--gen_num", default=1000, type=int)
     # 共有110类
     argparser.add_argument("--number_of_classes", default=110, type=int)
 
